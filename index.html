@@ -16,6 +16,7 @@
     .success-toast{position:fixed;top:max(16px,env(safe-area-inset-top));left:50%;transform:translateX(-50%);z-index:1000;display:flex;align-items:center;gap:10px;width:max-content;max-width:calc(100% - 32px);padding:14px 18px;border:1px solid var(--green);border-radius:14px;background:var(--card);color:var(--text);box-shadow:0 8px 30px #0002;pointer-events:none;font-size:14px;font-weight:700;animation:toast-in .25s ease-out}.toast-check{display:grid;place-items:center;flex-shrink:0;width:24px;height:24px;border-radius:50%;background:var(--green);color:var(--card)}@keyframes toast-in{from{opacity:0;transform:translate(-50%,-20px)}to{opacity:1;transform:translate(-50%,0)}}@media(prefers-reduced-motion:reduce){.success-toast{animation:none}}
     .action[data-action="unlock"]:not(.recommended),.action[data-action="enter"]:not(.recommended){color:var(--blue);border-color:var(--blue)}
     .history-list{display:grid;gap:8px}.event{border-top:0;border-left:3px solid var(--line);border-radius:10px;padding:13px 12px;background:var(--soft)}.event-entry{background:rgba(41,98,255,.055);border-left-color:rgba(41,98,255,.45)}.event-exit{background:rgba(198,40,40,.045);border-left-color:rgba(198,40,40,.4)}.dark .event-entry{background:rgba(123,135,255,.09);border-left-color:rgba(123,135,255,.5)}.dark .event-exit{background:rgba(255,123,123,.07);border-left-color:rgba(255,123,123,.45)}
+    #dialog-title:focus{outline:none}dialog h2{font-size:22px;line-height:1.5;letter-spacing:-.02em}dialog .description{line-height:1.8;margin-top:10px}.dialog-actions .btn{min-height:48px;padding:11px 16px}.dialog-actions.choice-actions{display:grid;grid-template-columns:minmax(0,1fr);justify-content:stretch;gap:12px;position:static;padding:0;margin-top:24px}.choice-action{display:flex;align-items:center;justify-content:space-between;gap:12px;width:100%;text-align:left;min-height:78px!important;padding:16px!important;border-radius:14px;background:var(--soft)}.choice-action strong{display:block;font-size:16px;line-height:1.5}.choice-description{display:block;color:var(--muted);font-size:12px;line-height:1.7;margin-top:4px}.choice-arrow{font-size:26px;color:var(--blue);line-height:1}.choice-action:hover{border-color:var(--blue);background:var(--soft)}.choice-actions .dialog-cancel{grid-row:3;border:0;background:transparent;color:var(--muted);font-size:13px;width:100%;min-height:42px;padding:8px;margin-top:0}@media(max-width:720px){dialog{padding:24px;border-radius:22px}.choice-action strong{font-size:15px}}
   </style>
 </head>
 <body>
@@ -155,11 +156,20 @@
     }
     function dismiss(){if($('flow').open)$('flow').close();flowActor=null;}
     function showDialog(title,description,body,buttons,tag='確認'){
-      $('dialog-content').innerHTML='<p class="dialog-tag">'+tag+'</p><h2 id="dialog-title">'+escapeHTML(title)+'</h2><p class="description">'+escapeHTML(description)+'</p>'+body+'<div class="dialog-actions">'+buttons.map((button,index)=>'<button class="btn '+(button.primary?'primary':'')+'" id="dialog-button-'+index+'"'+(button.disabled?' disabled':'')+'>'+escapeHTML(button.label)+'</button>').join('')+'</div>';
+      const choices=buttons.some(button=>button.description);
+      $('flow').setAttribute('aria-describedby','dialog-description');
+      const orderedButtons=buttons.map((button,index)=>({button,index}));
+      if(choices)orderedButtons.sort((a,b)=>Number(Boolean(b.button.description))-Number(Boolean(a.button.description)));
+      const controls=orderedButtons.map(({button,index})=>{
+        const choice=choices && button.description;
+        const classes=choice?'btn choice-action':choices?'btn dialog-cancel':'btn '+(button.primary?'primary':'');
+        const label=choice?'<span><strong>'+escapeHTML(button.label)+'</strong><span class="choice-description">'+escapeHTML(button.description)+'</span></span><span class="choice-arrow" aria-hidden="true">›</span>':escapeHTML(button.label);
+        return '<button class="'+classes+'" id="dialog-button-'+index+'"'+(button.disabled?' disabled':'')+'>'+label+'</button>';
+      }).join('');
+      $('dialog-content').innerHTML=(tag==='確認'?'':'<p class="dialog-tag">'+escapeHTML(tag)+'</p>')+'<h2 id="dialog-title" tabindex="-1">'+escapeHTML(title)+'</h2><p class="description" id="dialog-description">'+escapeHTML(description)+'</p>'+body+'<div class="dialog-actions'+(choices?' choice-actions':'')+'">'+controls+'</div>';
       buttons.forEach((button,index)=>$('dialog-button-'+index).addEventListener('click',button.run));
       if(!$('flow').open)$('flow').showModal();
-      // Focus the conservative action rather than a destructive confirmation.
-      $('dialog-button-0').focus();
+      $('dialog-title').focus({preventScroll:true});
     }
     function startClosing(actor,confirmed=false){
       const missingEntry=!state.occupants.some(person=>person.id===actor);
@@ -216,10 +226,10 @@
       if(action==='unlock'){
         if(state.occupants.length){
           flowActor=actor;
-          showDialog('本当に最初の入室ですか？','在室記録が残っています。最初の入室であれば、残っている記録を解除して開室します。','',[
+          showDialog('すでに中に人はいますか？','在室者の記録が残っています。今の部室の状況を選んでください。','',[
             {label:'キャンセル',run:dismiss},
-            {label:'先に人がいる',run:()=>{enter();dismiss();completeOperation('入室しました');}},
-            {label:'最初の入室です',primary:true,run:()=>{enter({first:true});dismiss();completeOperation('開錠・入室を記録しました。');}}
+            {label:'中に人がいる',description:'自分の入室だけを記録します',run:()=>{enter();dismiss();completeOperation('入室しました');}},
+            {label:'誰もいない・自分が最初',description:'残っている在室記録を整理して開室します',run:()=>{enter({first:true});dismiss();completeOperation('開錠・入室を記録しました。');}}
           ]);return;
         }
         if(state.open){
@@ -233,15 +243,15 @@
       }
       if(!state.open){
         flowActor=actor;
-        showDialog('最初の入室ですか？','記録上は閉室中です。','',[
+        showDialog('すでに中に人はいますか？','部室は「閉室中」として記録されています。','',[
           {label:'キャンセル',run:dismiss},
-          {label:'先に人がいる',run:()=>{
+          {label:'中に人がいる',description:'先にいる人にも入室記録をお願いします',run:()=>{
             enter({unrecorded:true});
             showDialog('中にいる人に声をかけてください','先にいる人にも、入室記録をするよう声をかけてください。','',[
               {label:'確認しました',primary:true,run:()=>{dismiss();completeOperation('入室しました。開室記録者として登録しました。');}}
             ],'入室完了');
           }},
-          {label:'最初の入室です',primary:true,run:()=>{enter({first:true});dismiss();completeOperation('開室者として入室しました。');}}
+          {label:'自分が最初',description:'開錠・入室として記録します',run:()=>{enter({first:true});dismiss();completeOperation('開室者として入室しました。');}}
         ]);return;
       }
       if(reentry){
