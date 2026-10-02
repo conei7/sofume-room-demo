@@ -13,10 +13,12 @@
     .action[data-action="leave"],.action[data-action="close"]{color:var(--red);border-color:var(--red)}.action.recommended[data-action="leave"],.action.recommended[data-action="close"]{background:var(--red);color:#fff}.dark .action.recommended[data-action="leave"],.dark .action.recommended[data-action="close"]{color:#0a0a0a}
 
     [hidden]{display:none!important}main{max-width:760px;padding-top:26px}.eyebrow,.accent{display:none}h1{font-size:28px;margin-bottom:18px}.view-nav{display:flex;gap:5px;background:var(--soft);border-radius:12px;padding:4px;margin-bottom:24px}.view-nav button{flex:1;min-height:42px;border:0;border-radius:9px;background:transparent;color:var(--muted);font-size:13px;font-weight:700}.view-nav button[aria-current="page"]{background:var(--card);color:var(--text);box-shadow:var(--shadow)}.workspace{display:block}.operation-card{max-width:540px;margin:auto}.identity select{min-width:132px;font-size:16px}.room-summary{display:flex;justify-content:space-between;gap:12px;padding:0 2px;margin:0 0 18px;font-size:13px;color:var(--muted)}.room-summary .summary-open{color:var(--green)}.mismatch{margin-bottom:16px;padding:10px 12px;border-radius:10px;background:var(--soft);border-left:3px solid var(--red);font-size:12px;color:var(--red)}.action.recommended{min-height:124px;text-align:center;display:flex;flex-direction:column;justify-content:center}.action.recommended strong{font-size:26px}.action.recommended span:last-child{display:none}.action{min-height:52px}.feedback{max-width:540px;margin:16px auto 0}.history{margin-top:18px}.demo-tools{margin-top:24px;padding:14px 18px}.demo-tools summary{cursor:pointer;color:var(--muted);font-size:12px;min-height:24px}.demo-tools .tools-row{margin-top:14px}footer{margin-top:20px}.empty{min-height:75px}.people{max-height:360px;overflow:auto}.view-nav button:focus-visible{outline:3px solid var(--blue);outline-offset:2px}@media(max-width:720px){main{padding:18px 16px 28px}.nav{padding:10px 16px}.nav .badge{display:none}h1{font-size:25px;margin-bottom:14px}.view-nav{margin-bottom:18px}.card{padding:20px}.card-head{margin-bottom:16px}.operation-card .card-head h2{font-size:16px}.identity{padding:10px 12px;margin-bottom:12px}.room-summary{margin-bottom:14px}.action.recommended{min-height:120px}.action.recommended strong{font-size:25px}.action strong{font-size:12px}.dialog-actions{position:sticky;bottom:-22px;background:var(--card);padding:12px 0;margin-top:12px}.dialog-actions .primary{flex:1}.switch-row{min-height:66px}}
+    .success-toast{position:fixed;top:max(16px,env(safe-area-inset-top));left:50%;transform:translateX(-50%);z-index:1000;display:flex;align-items:center;gap:10px;width:max-content;max-width:calc(100% - 32px);padding:14px 18px;border:1px solid var(--green);border-radius:14px;background:var(--card);color:var(--text);box-shadow:0 8px 30px #0002;pointer-events:none;font-size:14px;font-weight:700;animation:toast-in .25s ease-out}.toast-check{display:grid;place-items:center;flex-shrink:0;width:24px;height:24px;border-radius:50%;background:var(--green);color:var(--card)}@keyframes toast-in{from{opacity:0;transform:translate(-50%,-20px)}to{opacity:1;transform:translate(-50%,0)}}@media(prefers-reduced-motion:reduce){.success-toast{animation:none}}
   </style>
 </head>
 <body>
   <header><div class="nav"><div class="brand"><span class="mark" aria-hidden="true"><i></i><i></i><i></i></span>ソフトメディア研究会</div><div class="nav-right"><span class="badge">MEMBERS</span><button class="theme" id="theme" aria-label="ダークモードに切り替え">☾</button></div></div></header>
+  <div class="success-toast" id="success-toast" role="status" aria-live="polite" aria-atomic="true" hidden><span class="toast-check" aria-hidden="true">✓</span><span id="success-message"></span></div>
   <main>
     <h1 id="page-title">入室</h1>
     <nav class="view-nav" aria-label="部室管理"><button id="nav-enter" data-route="enter">入室</button><button id="nav-exit" data-route="exit">退室</button><button id="nav-status" data-route="status">状況・履歴</button></nav>
@@ -39,7 +41,7 @@
   <script>
     'use strict';
     // State transitions are independent of DOM rendering and external services.
-    const MEMBERS = [{id:'cone',name:'cone i7'},{id:'aoi',name:'あおい'},{id:'haru',name:'はる'},{id:'mika',name:'みか'}];
+    const MEMBERS = [{id:'cone',name:'cone i7'},{id:'aoi',name:'A'},{id:'haru',name:'B'},{id:'mika',name:'C'}];
     const memberName = id => MEMBERS.find(member => member.id === id)?.name ?? '未確認';
     function initialState(){return {open:false,lockRecorded:false,opener:null,openRecorder:null,closingPending:false,occupants:[],history:[],updated:null};}
     function transition(current,event){
@@ -110,6 +112,12 @@
     const formatTime=value=>new Intl.DateTimeFormat('ja-JP',{timeZone:'Asia/Tokyo',hour:'2-digit',minute:'2-digit'}).format(new Date(value));
     const formatDate=value=>new Intl.DateTimeFormat('ja-JP',{timeZone:'Asia/Tokyo',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit',second:'2-digit'}).format(new Date(value));
     function feedback(message){$('feedback').textContent=message;$('feedback').hidden=false;}
+    let toastTimer;
+    function completeOperation(message){
+      navigate('status');window.scrollTo({top:0,behavior:'instant'});
+      clearTimeout(toastTimer);$('success-toast').hidden=true;$('success-message').textContent=message;
+      requestAnimationFrame(()=>{$('success-toast').hidden=false;toastTimer=setTimeout(()=>{$('success-toast').hidden=true;},4000);});
+    }
     function dispatch(event){state=transition(state,event);if(event.actor && ['ENTER','LEAVE','CLOSE'].includes(event.type))lastRecordedIntent={actor:event.actor,mode:event.type==='ENTER'?'enter':'exit'};render();}
     function navigate(route){
       dismiss();view=route==='status'?'status':'operation';if(route!=='status')mode=route;
@@ -173,7 +181,7 @@
         }},
         {label:'閉室・施錠を記録',primary:true,disabled:true,run:()=>{
           if(!ready())return;
-          dispatch({type:'CLOSE',actor:flowActor,ids:selectedIds(),missingEntry});dismiss();feedback('閉室・施錠を記録しました。');
+          dispatch({type:'CLOSE',actor:flowActor,ids:selectedIds(),missingEntry});dismiss();completeOperation('閉室・施錠を記録しました。');
         }}
       ],'閉室確認');
       const update=()=>{
@@ -196,11 +204,11 @@
           flowActor=actor;
           showDialog('本当に最初の入室ですか？','在室記録が残っています。最初の入室であれば、残っている記録を解除して開室します。','',[
             {label:'キャンセル',run:dismiss},
-            {label:'先に人がいる',run:()=>{enter();dismiss();feedback('入室しました');}},
-            {label:'最初の入室です',primary:true,run:()=>{enter({first:true});dismiss();feedback('開錠・入室を記録しました。');}}
+            {label:'先に人がいる',run:()=>{enter();dismiss();completeOperation('入室しました');}},
+            {label:'最初の入室です',primary:true,run:()=>{enter({first:true});dismiss();completeOperation('開錠・入室を記録しました。');}}
           ]);return;
         }
-        enter({first:true});feedback('開錠・入室を記録しました。');return;
+        enter({first:true});completeOperation('開錠・入室を記録しました。');return;
       }
       if(!state.open){
         flowActor=actor;
@@ -209,20 +217,20 @@
           {label:'先に人がいる',run:()=>{
             enter({unrecorded:true});
             showDialog('中にいる人に声をかけてください','先にいる人にも、入室記録をするよう声をかけてください。','',[
-              {label:'確認しました',primary:true,run:()=>{dismiss();feedback('入室しました。開室記録者として登録しました。');}}
+              {label:'確認しました',primary:true,run:()=>{dismiss();completeOperation('入室しました。開室記録者として登録しました。');}}
             ],'入室完了');
           }},
-          {label:'最初の入室です',primary:true,run:()=>{enter({first:true});dismiss();feedback('開室者として入室しました。');}}
+          {label:'最初の入室です',primary:true,run:()=>{enter({first:true});dismiss();completeOperation('開室者として入室しました。');}}
         ]);return;
       }
       if(reentry){
         flowActor=actor;
         showDialog('在室記録が残っています','今から入室しますか？','',[
           {label:'すでに入室済み',run:()=>{dismiss();feedback('在室記録は変更していません。');}},
-          {label:'今から入室する',primary:true,run:()=>{enter();dismiss();feedback('再入室を記録しました。');}}
+          {label:'今から入室する',primary:true,run:()=>{enter();dismiss();completeOperation('再入室を記録しました。');}}
         ]);return;
       }
-      enter();feedback('入室しました');
+      enter();completeOperation('入室しました');
     }
     function operate(action){
       const actor=$('member').value;
@@ -230,8 +238,8 @@
       if(action==='unlock'||action==='enter'){enterRoom(action,actor,present);return;}
       if(action==='leave'){
         dispatch({type:'LEAVE',actor});
-        if(!state.open || state.occupants.length){feedback('退室しました');return;}
-        feedback('退室を記録しました。');startClosing(actor,true);return;
+        if(!state.open || state.occupants.length){completeOperation('退室しました');return;}
+        completeOperation('退室しました');startClosing(actor,true);return;
       }
       if(action==='close')startClosing(actor);
     }
@@ -243,7 +251,7 @@
     $('flow').addEventListener('cancel',()=>{flowActor=null;feedback('確認を中断しました。反映済みの退室・整理は保持されます。');});
     $('load-scenario').addEventListener('click',()=>{
       dismiss();lastRecordedIntent=null;state=sampleState($('scenario').value);$('member').value='cone';render();
-      feedback($('scenario').value==='unrecorded'?'先客の入室記録がない状態に設定しました。':$('scenario').value==='stale'?'不在のあおい・はるの在室記録が残っている状態に設定しました。':'状態を設定しました。');
+      feedback($('scenario').value==='unrecorded'?'先客の入室記録がない状態に設定しました。':$('scenario').value==='stale'?'不在のA・Bの在室記録が残っている状態に設定しました。':'状態を設定しました。');
     });
     $('reset').addEventListener('click',()=>{dismiss();lastRecordedIntent=null;state=initialState();$('member').value='cone';$('scenario').value='closed';render();feedback('初期状態にリセットしました。');});
     $('night').addEventListener('click',()=>{dismiss();dispatch({type:'NIGHT'});feedback('22時処理で在室記録を全員解除し、閉室中にしました。実際の施錠は未確認です。');});
