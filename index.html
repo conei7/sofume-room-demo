@@ -222,6 +222,13 @@
             {label:'最初の入室です',primary:true,run:()=>{enter({first:true});dismiss();completeOperation('開錠・入室を記録しました。');}}
           ]);return;
         }
+        if(state.open){
+          flowActor=actor;
+          showDialog('開錠・入室を記録しますか？','在室者は0人ですが、記録上は開室中です。実際に開錠して最初に入室した場合は、そのまま記録できます。','',[
+            {label:'キャンセル',run:dismiss},
+            {label:'開錠・入室を記録する',primary:true,run:()=>{enter({first:true});dismiss();completeOperation('開錠・入室を記録しました。');}}
+          ]);return;
+        }
         enter({first:true});completeOperation('開錠・入室を記録しました。');return;
       }
       if(!state.open){
@@ -252,14 +259,18 @@
       if(action==='unlock'||action==='enter'){enterRoom(action,actor,present);return;}
       if(action==='leave'){
         const leave=(confirmed=false)=>{
-          if(state.open && state.occupants.every(person=>person.id===actor)){startClosing(actor);return;}
+          if(state.open && state.occupants.every(person=>person.id===actor)){startClosing(actor,confirmed);return;}
           dispatch({type:'LEAVE',actor,confirmed});completeOperation('退室しました');
         };
-        if(!present && state.departed.includes(actor)){
+        if(!present){
           flowActor=actor;
-          showDialog('もう一度退室を記録しますか？','すでに退室記録があります。今回の入室記録を忘れている場合は、そのまま退室を記録できます。','',[
+          const repeated=state.departed.includes(actor);
+          const title=repeated?'もう一度退室を記録しますか？':'入室記録がありません';
+          const description=repeated?'すでに退室記録があります。今回の入室記録を忘れている場合は、そのまま退室を記録できます。':'入室記録がありません。このまま退室を記録しますか？';
+          const label=state.open && state.occupants.length===0?'閉室チェックへ進む':'退室を記録する';
+          showDialog(title,description,'',[
             {label:'キャンセル',run:dismiss},
-            {label:'退室を記録する',primary:true,run:()=>{dismiss();leave(true);}}
+            {label,primary:true,run:()=>{dismiss();leave(true);}}
           ]);return;
         }
         leave();return;
