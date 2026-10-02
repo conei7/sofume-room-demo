@@ -162,9 +162,13 @@
       $('dialog-button-0').focus();
     }
     function startClosing(actor,confirmed=false){
-      if(!state.open && state.lockRecorded && !confirmed){
+      const missingEntry=!state.occupants.some(person=>person.id===actor);
+      const alreadyLocked=!state.open && state.lockRecorded;
+      if(!confirmed && (missingEntry || alreadyLocked)){
         flowActor=actor;
-        showDialog('もう一度施錠・退室を記録しますか？','すでに施錠記録があります。今回の入室記録を忘れている場合などは、閉室チェックをして改めて記録できます。','',[
+        const title=alreadyLocked?'もう一度施錠・退室を記録しますか？':'入室記録がありません';
+        const description=(alreadyLocked?'すでに施錠記録があります。':'')+(missingEntry?'あなたの入室記録がありません。入室記録を忘れている場合は、このまま閉室チェックへ進めます。':'閉室チェックをして改めて記録できます。');
+        showDialog(title,description,'',[
           {label:'キャンセル',run:dismiss},
           {label:'閉室チェックへ進む',primary:true,run:()=>{dismiss();startClosing(actor,true);}}
         ]);return;
