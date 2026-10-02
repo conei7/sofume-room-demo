@@ -158,17 +158,17 @@
       // Focus the conservative action rather than a destructive confirmation.
       $('dialog-button-0').focus();
     }
-    function startClosing(actor,departureRecorded=false){
+    function startClosing(actor){
       if(!state.open && state.lockRecorded){feedback('すでに施錠を記録しています。');return;}
       flowActor=actor;
-      closingChecklist(departureRecorded);
+      closingChecklist();
     }
     function switchRow(id,title,description=''){
       return '<label class="switch-row" for="'+id+'"><span><strong>'+escapeHTML(title)+'</strong>'+(description?'<span class="small">'+escapeHTML(description)+'</span>':'')+'</span><span class="switch"><input type="checkbox" role="switch" id="'+id+'"><span class="switch-track" aria-hidden="true"></span></span></label>';
     }
     const CHECKS=[{id:'aircon',title:'エアコン',description:'電源を切ったことを確認'},{id:'circulator',title:'サーキュレーター',description:'電源を切ったことを確認'},{id:'door',title:'扉・施錠',description:'扉を閉め、実際に施錠したことを確認'}];
-    function closingChecklist(departureRecorded=false){
-      const missingEntry=!departureRecorded && !state.occupants.some(person=>person.id===flowActor);
+    function closingChecklist(){
+      const missingEntry=!state.occupants.some(person=>person.id===flowActor);
       const others=state.occupants.filter(person=>person.id!==flowActor);
       const people=others.map(person=>switchRow('review-'+person.id,memberName(person.id),'退室する')).join('');
       const toolbar=others.length?'<div class="review-toolbar"><span>すでに不在の人・一緒に退室する人</span><button class="btn" id="select-all">全員退室</button></div><div class="review-list">'+people+'</div>':'';
@@ -178,7 +178,7 @@
       showDialog('閉室チェック','実際に確認した項目をONにしてください。',body,[
         {label:'中断する',run:()=>{
           const present=state.occupants.some(person=>person.id===flowActor);
-          dismiss();feedback(present?'閉室確認を中断しました。在室のままです。':departureRecorded?'あなたの退室は完了しています。閉室確認は未完了です。':'閉室確認を中断しました。記録は変更していません。');
+          dismiss();feedback(present?'閉室確認を中断しました。在室のままです。':'閉室確認を中断しました。記録は変更していません。');
         }},
         {label:'閉室・施錠を記録',primary:true,disabled:true,run:()=>{
           if(!ready())return;
@@ -238,9 +238,8 @@
       const present=state.occupants.some(person=>person.id===actor);
       if(action==='unlock'||action==='enter'){enterRoom(action,actor,present);return;}
       if(action==='leave'){
-        dispatch({type:'LEAVE',actor});
-        if(!state.open || state.occupants.length){completeOperation('退室しました');return;}
-        completeOperation('退室しました');startClosing(actor,true);return;
+        if(state.open && state.occupants.every(person=>person.id===actor)){startClosing(actor);return;}
+        dispatch({type:'LEAVE',actor});completeOperation('退室しました');return;
       }
       if(action==='close')startClosing(actor);
     }
@@ -249,7 +248,7 @@
     document.querySelectorAll('[data-route]').forEach(button=>button.addEventListener('click',()=>navigate(button.dataset.route)));
     window.addEventListener('popstate',()=>{const params=new URLSearchParams(location.search);mode=params.get('mode')==='exit'?'exit':'enter';view=params.get('view')==='status'?'status':'operation';dismiss();lastRecordedIntent=null;$('feedback').hidden=true;render();});
     document.querySelectorAll('[data-action]').forEach(button=>button.addEventListener('click',()=>operate(button.dataset.action)));
-    $('flow').addEventListener('cancel',()=>{flowActor=null;feedback('確認を中断しました。反映済みの退室・整理は保持されます。');});
+    $('flow').addEventListener('cancel',()=>{flowActor=null;feedback('確認を中断しました。');});
     $('load-scenario').addEventListener('click',()=>{
       dismiss();lastRecordedIntent=null;state=sampleState($('scenario').value);$('member').value='cone';render();
       feedback($('scenario').value==='unrecorded'?'先客の入室記録がない状態に設定しました。':$('scenario').value==='stale'?'不在のA・Bの在室記録が残っている状態に設定しました。':'状態を設定しました。');
