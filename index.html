@@ -76,7 +76,7 @@
           record('まとめて退室','対象：'+removed.map(person=>memberName(person.id)).join('、'));break;
         }
         case 'CLOSE':{
-          if(!next.open && next.lockRecorded)return current;
+          if(!next.open && next.lockRecorded && !event.confirmed)return current;
           const ids=event.ids ?? [];
           if(next.occupants.some(person=>person.id!==event.actor && !ids.includes(person.id)))return current;
           const others=next.occupants.filter(person=>person.id!==event.actor);
@@ -135,8 +135,7 @@
       const present=state.occupants.some(person=>person.id===$('member').value);
       const others=state.occupants.filter(person=>person.id!==$('member').value).length;
       const recommended=mode==='enter'?(state.open?'enter':'unlock'):(others?'leave':'close');
-      document.querySelectorAll('[data-action]').forEach(button=>{const main=button.dataset.action===recommended;button.classList.toggle('recommended',main);button.style.order=main?'-1':'0';button.disabled=button.dataset.action==='close' && !state.open && state.lockRecorded;});
-      document.querySelector('[data-action="close"] strong').textContent=!state.open && state.lockRecorded?'施錠済み':'施錠・退室';
+      document.querySelectorAll('[data-action]').forEach(button=>{const main=button.dataset.action===recommended;button.classList.toggle('recommended',main);button.style.order=main?'-1':'0';button.disabled=false;});
       $('page-title').textContent=view==='status'?'部室の状況':mode==='enter'?'入室':'退室';
       $('operation-heading').textContent=mode==='enter'?'入室を記録':'退室を記録';
       $('operation-view').hidden=view==='status';$('status-view').hidden=view!=='status';$('history-view').hidden=view!=='status';
@@ -160,16 +159,22 @@
       // Focus the conservative action rather than a destructive confirmation.
       $('dialog-button-0').focus();
     }
-    function startClosing(actor){
-      if(!state.open && state.lockRecorded){feedback('すでに施錠を記録しています。');return;}
+    function startClosing(actor,confirmed=false){
+      if(!state.open && state.lockRecorded && !confirmed){
+        flowActor=actor;
+        showDialog('もう一度施錠・退室を記録しますか？','すでに施錠記録があります。今回の入室記録を忘れている場合などは、閉室チェックをして改めて記録できます。','',[
+          {label:'キャンセル',run:dismiss},
+          {label:'閉室チェックへ進む',primary:true,run:()=>{dismiss();startClosing(actor,true);}}
+        ]);return;
+      }
       flowActor=actor;
-      closingChecklist();
+      closingChecklist(confirmed);
     }
     function switchRow(id,title,description=''){
       return '<label class="switch-row" for="'+id+'"><span><strong>'+escapeHTML(title)+'</strong>'+(description?'<span class="small">'+escapeHTML(description)+'</span>':'')+'</span><span class="switch"><input type="checkbox" role="switch" id="'+id+'"><span class="switch-track" aria-hidden="true"></span></span></label>';
     }
     const CHECKS=[{id:'aircon',title:'エアコン',description:'電源を切ったことを確認'},{id:'circulator',title:'サーキュレーター',description:'電源を切ったことを確認'},{id:'door',title:'扉・施錠',description:'扉を閉め、実際に施錠したことを確認'}];
-    function closingChecklist(){
+    function closingChecklist(confirmed=false){
       const missingEntry=!state.occupants.some(person=>person.id===flowActor);
       const others=state.occupants.filter(person=>person.id!==flowActor);
       const people=others.map(person=>switchRow('review-'+person.id,memberName(person.id),'退室する')).join('');
@@ -184,7 +189,7 @@
         }},
         {label:'閉室・施錠を記録',primary:true,disabled:true,run:()=>{
           if(!ready())return;
-          dispatch({type:'CLOSE',actor:flowActor,ids:selectedIds(),missingEntry});dismiss();completeOperation('閉室・施錠を記録しました。');
+          dispatch({type:'CLOSE',actor:flowActor,ids:selectedIds(),missingEntry,confirmed});dismiss();completeOperation('閉室・施錠を記録しました。');
         }}
       ],'閉室確認');
       const update=()=>{
