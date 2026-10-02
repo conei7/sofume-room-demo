@@ -43,7 +43,7 @@
     // State transitions are independent of DOM rendering and external services.
     const MEMBERS = [{id:'cone',name:'cone i7'},{id:'aoi',name:'A'},{id:'haru',name:'B'},{id:'mika',name:'C'}];
     const memberName = id => MEMBERS.find(member => member.id === id)?.name ?? '未確認';
-    function initialState(){return {open:false,lockRecorded:false,opener:null,openRecorder:null,closingPending:false,occupants:[],history:[],updated:null};}
+    function initialState(){return {open:false,lockRecorded:false,lockRecord:null,opener:null,openRecorder:null,closingPending:false,occupants:[],history:[],updated:null};}
     function transition(current,event){
       const next={...current,occupants:current.occupants.map(person=>({...person})),history:[...current.history]};
       const now=event.time ?? new Date().toISOString();
@@ -60,7 +60,7 @@
           }else if(!next.open)next.opener=null;
           if(event.first || event.unrecorded)next.openRecorder=event.actor;
           next.occupants=next.occupants.filter(person=>person.id!==event.actor);
-          next.open=true;next.lockRecorded=false;next.closingPending=false;next.occupants.push({id:event.actor,since:now});
+          next.open=true;next.lockRecorded=false;next.lockRecord=null;next.closingPending=false;next.occupants.push({id:event.actor,since:now});
           if(event.reentry)entryDetails.push('退室記録なしで再入室');
           if(event.unrecorded)entryDetails.push('先客の入室記録が未確認。開錠者は未確認。');
           record(event.first?'開錠・入室':'入室',entryDetails.join(' ／ '));break;
@@ -81,12 +81,12 @@
           const closeDetails=[];
           if(event.missingEntry)closeDetails.push('入室記録なし');
           if(others.length)closeDetails.push('一緒に退室：'+others.map(person=>memberName(person.id)).join('、'));
-          next.occupants=[];next.open=false;next.lockRecorded=true;next.opener=null;next.openRecorder=null;next.closingPending=false;
+          next.occupants=[];next.open=false;next.lockRecorded=true;next.lockRecord={actor:event.actor,time:now};next.opener=null;next.openRecorder=null;next.closingPending=false;
           record('施錠・退室',closeDetails.join(' ／ '));break;
         }
         case 'NIGHT':{
           const removed=next.occupants.map(person=>memberName(person.id));
-          next.occupants=[];next.open=false;next.lockRecorded=false;next.opener=null;next.openRecorder=null;next.closingPending=false;
+          next.occupants=[];next.open=false;next.lockRecorded=false;next.lockRecord=null;next.opener=null;next.openRecorder=null;next.closingPending=false;
           record('22時処理：全員リセット',removed.length?'対象：'+removed.join('、')+'。実際の施錠は未確認。':'対象者なし。実際の施錠は未確認。','system');break;
         }
         default:return current;
@@ -127,7 +127,8 @@
     }
     function render(){
       $('status').classList.toggle('open',state.open);$('status-text').textContent=state.open?'開室中':'閉室中';
-      $('opener').textContent=state.open?(state.opener?'開室者：'+memberName(state.opener):'開錠者：未確認'+(state.openRecorder?' ／ 開室記録者：'+memberName(state.openRecorder):'')):'開室者：—';
+      $('opener').textContent=state.open?(state.opener?'開室者：'+memberName(state.opener):'開錠者：未確認'+(state.openRecorder?' ／ 開室記録者：'+memberName(state.openRecorder):'')):state.lockRecord?memberName(state.lockRecord.actor)+'が'+formatTime(state.lockRecord.time)+'に施錠':'';
+      $('opener').hidden=!state.open && !state.lockRecord;
       $('closing-pending').hidden=!state.closingPending;
       const present=state.occupants.some(person=>person.id===$('member').value);
       const others=state.occupants.filter(person=>person.id!==$('member').value).length;
