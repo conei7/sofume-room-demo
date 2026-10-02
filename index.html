@@ -256,9 +256,9 @@
         flowActor=actor;
         showDialog('すでに中に人はいますか？','部室は「閉室中」として記録されています。','',[
           {label:'キャンセル',run:dismiss},
-          {label:'中に人がいる',description:'先にいる人にも入室記録をお願いします',run:()=>{
+          {label:'中に人がいる',description:'中にいる人にも、入室を記録するよう声をかけてください',run:()=>{
             enter({unrecorded:true});completeOperation('入室を記録しました。');
-            showDialog('中にいる人に声をかけてください','先にいる人にも、入室記録をするよう声をかけてください。','',[
+            showDialog('中にいる人に声をかけてください','中にいる人にも、入室を記録するよう声をかけてください。','',[
               {label:'確認しました',primary:true,run:()=>{dismiss();completeOperation('入室を記録しました。');}}
             ],'入室完了');
           }},
