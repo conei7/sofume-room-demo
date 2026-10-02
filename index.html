@@ -46,7 +46,7 @@
     // State transitions are independent of DOM rendering and external services.
     const MEMBERS = [{id:'cone',name:'cone i7'},{id:'aoi',name:'A'},{id:'haru',name:'B'},{id:'mika',name:'C'}];
     const memberName = id => MEMBERS.find(member => member.id === id)?.name ?? '未確認';
-    function initialState(){return {open:false,lockRecorded:false,lockRecord:null,opener:null,openRecorder:null,closingPending:false,occupants:[],departed:[],notices:[],history:[],updated:null};}
+    function initialState(){return {open:false,lockRecorded:false,lockRecord:null,opener:null,openRecorder:null,closingPending:false,unrecordedRemaining:false,occupants:[],departed:[],notices:[],history:[],updated:null};}
     function transition(current,event){
       const next={...current,occupants:current.occupants.map(person=>({...person})),history:[...current.history],notices:[...current.notices]};
       const now=event.time ?? new Date().toISOString();
@@ -64,14 +64,18 @@
           if(event.first || event.unrecorded)next.openRecorder=event.actor;
           next.occupants=next.occupants.filter(person=>person.id!==event.actor);
           next.notices=next.notices.filter(notice=>notice.memberId!==event.actor);
-          next.departed=next.departed.filter(id=>id!==event.actor);next.open=true;next.lockRecorded=false;next.lockRecord=null;next.closingPending=false;next.occupants.push({id:event.actor,since:now});
+          next.departed=next.departed.filter(id=>id!==event.actor);next.open=true;next.lockRecorded=false;next.lockRecord=null;next.closingPending=false;next.unrecordedRemaining=false;next.occupants.push({id:event.actor,since:now});
           if(event.reentry)entryDetails.push('退室記録なしで再入室');
           if(event.unrecorded)entryDetails.push('先客の入室記録が未確認。開錠者は未確認。');
           record(event.first?'開錠・入室':'入室',entryDetails.join(' ／ '));break;
         case 'LEAVE':
           if(!present && next.departed.includes(event.actor) && !event.confirmed)return current;
           next.departed=[...new Set([...next.departed,event.actor])];
-          next.occupants=next.occupants.filter(person=>person.id!==event.actor);next.closingPending=next.open && next.occupants.length===0;record('退室',present?'':'入室記録なし');break;
+          next.occupants=next.occupants.filter(person=>person.id!==event.actor);
+          if(event.peopleRemain){next.open=true;next.lockRecorded=false;next.lockRecord=null;}
+          next.unrecordedRemaining=next.open && next.occupants.length===0 && Boolean(event.peopleRemain);
+          next.closingPending=next.open && next.occupants.length===0 && !next.unrecordedRemaining;
+          record('退室',[present?'':'入室記録なし',event.peopleRemain?'ほかの人が在室（入室記録なし）':''].filter(Boolean).join(' ／ '));break;
         case 'REMOVE_ABSENT':{
           const removed=next.occupants.filter(person=>event.ids.includes(person.id));
           if(!removed.length)return current;
@@ -91,12 +95,12 @@
           if(automatic.length)closeDetails.push('施錠に伴う自動退室：'+automatic.map(person=>memberName(person.id)).join('、'));
           const departedIds=[event.actor,...others.map(person=>person.id)];
           next.notices=next.notices.filter(notice=>!departedIds.includes(notice.memberId)).concat(automatic.map(person=>({memberId:person.id,time:now,message:'部室が施錠されたため、あなたの在室記録を自動で終了しました。'})));
-          next.departed=[...new Set([...next.departed,event.actor,...next.occupants.map(person=>person.id)])];next.occupants=[];next.open=false;next.lockRecorded=true;next.lockRecord={actor:event.actor,time:now};next.opener=null;next.openRecorder=null;next.closingPending=false;
+          next.departed=[...new Set([...next.departed,event.actor,...next.occupants.map(person=>person.id)])];next.occupants=[];next.open=false;next.lockRecorded=true;next.lockRecord={actor:event.actor,time:now};next.opener=null;next.openRecorder=null;next.closingPending=false;next.unrecordedRemaining=false;
           record('施錠・退室',closeDetails.join(' ／ '),event.actor,{togetherIds:together.map(person=>person.id),autoDepartedIds:automatic.map(person=>person.id)});break;
         }
         case 'NIGHT':{
           const removed=next.occupants.map(person=>memberName(person.id));
-          next.departed=[];next.occupants=[];next.open=false;next.lockRecorded=false;next.lockRecord=null;next.opener=null;next.openRecorder=null;next.closingPending=false;
+          next.departed=[];next.occupants=[];next.open=false;next.lockRecorded=false;next.lockRecord=null;next.opener=null;next.openRecorder=null;next.closingPending=false;next.unrecordedRemaining=false;
           record('22時処理：全員リセット',removed.length?'対象：'+removed.join('、')+'。実際の施錠は未確認。':'対象者なし。実際の施錠は未確認。','system');break;
         }
         default:return current;
@@ -142,7 +146,8 @@
       $('status').classList.toggle('open',state.open);$('status-text').textContent=state.open?'開室中':'閉室中';
       $('opener').textContent=state.open?(state.opener?'開室者：'+memberName(state.opener):'開錠者：未確認'+(state.openRecorder?' ／ 開室記録者：'+memberName(state.openRecorder):'')):state.lockRecord?memberName(state.lockRecord.actor)+'が'+formatTime(state.lockRecord.time)+'に施錠':'';
       $('opener').hidden=!state.open && !state.lockRecord;
-      $('closing-pending').hidden=!state.closingPending;
+      $('closing-pending').hidden=!state.closingPending && !state.unrecordedRemaining;
+      $('closing-pending').textContent=state.unrecordedRemaining?'入室記録のない在室者がいます':'閉室確認が未完了です';
       const notice=state.notices.find(item=>item.memberId===$('member').value);
       $('member-notice').hidden=!notice;
       $('member-notice').textContent=notice?.message ?? '';
@@ -154,15 +159,15 @@
       $('operation-heading').textContent=mode==='enter'?'入室を記録':'退室を記録';
       $('operation-view').hidden=view==='status';$('status-view').hidden=view!=='status';$('history-view').hidden=view!=='status';
       document.querySelectorAll('[data-route]').forEach(button=>{if(button.dataset.route===(view==='status'?'status':mode))button.setAttribute('aria-current','page');else button.removeAttribute('aria-current');});
-      $('summary-status').textContent=state.open?'開室中':'閉室中';$('summary-status').classList.toggle('summary-open',state.open);$('summary-count').textContent='在室者 '+state.occupants.length+'人';
+      $('summary-status').textContent=state.open?'開室中':'閉室中';$('summary-status').classList.toggle('summary-open',state.open);$('summary-count').textContent=(state.unrecordedRemaining?'在室記録 ':'在室者 ')+state.occupants.length+'人';
       const justRecorded=lastRecordedIntent?.actor===$('member').value && lastRecordedIntent.mode===mode;
       const mismatch=mode==='enter'?present:!present;
       $('mismatch').hidden=!mismatch || justRecorded;
       $('mismatch').textContent=mode==='enter'?'在室記録が残っています':'入室記録がありません';
-      $('count').textContent=state.occupants.length+'人';
+      $('count').textContent=(state.unrecordedRemaining?'記録 ':'')+state.occupants.length+'人';
       $('self-status').textContent=state.occupants.some(person=>person.id===$('member').value)?'あなたは在室中':'あなたは退室中';
       $('updated').textContent=state.updated?formatTime(state.updated)+' 更新':'まだ操作はありません';
-      $('people').innerHTML=state.occupants.length?state.occupants.map(person=>'<li class="person"><span class="avatar" aria-hidden="true">'+escapeHTML(memberName(person.id).slice(0,2))+'</span><div><div class="person-name">'+escapeHTML(memberName(person.id))+'</div><div class="person-time">'+formatTime(person.since)+' 入室</div></div></li>').join(''):'<li class="empty"><span class="empty-icon" aria-hidden="true">♧</span><span>現在の在室者はいません</span></li>';
+      $('people').innerHTML=state.occupants.length?state.occupants.map(person=>'<li class="person"><span class="avatar" aria-hidden="true">'+escapeHTML(memberName(person.id).slice(0,2))+'</span><div><div class="person-name">'+escapeHTML(memberName(person.id))+'</div><div class="person-time">'+formatTime(person.since)+' 入室</div></div></li>').join(''):'<li class="empty"><span class="empty-icon" aria-hidden="true">♧</span><span>'+ (state.unrecordedRemaining?'在室者の入室記録を待っています':'現在の在室者はいません') +'</span></li>';
       $('history').innerHTML=state.history.length?state.history.map(event=>'<li class="event '+(event.actor==='system'?'event-system':event.title.includes('入室')?'event-entry':'event-exit')+'"><time datetime="'+escapeHTML(event.time)+'">'+formatDate(event.time)+'</time><div><div class="event-title">'+escapeHTML(event.title)+' <span class="small">／ '+escapeHTML(event.actor==='system'?'システム':memberName(event.actor))+'</span></div>'+(event.detail?'<p class="event-detail">'+escapeHTML(event.detail)+'</p>':'')+'</div></li>').join(''):'<li class="history-empty">まだ履歴はありません。操作すると、ここに記録されます。</li>';
     }
     function dismiss(){if($('flow').open)$('flow').close();flowActor=null;}
@@ -280,7 +285,17 @@
       if(action==='unlock'||action==='enter'){enterRoom(action,actor,present);return;}
       if(action==='leave'){
         const leave=(confirmed=false)=>{
-          if((present || state.open) && state.occupants.every(person=>person.id===actor)){startClosing(actor,confirmed);return;}
+          if((present || state.open) && state.occupants.every(person=>person.id===actor)){
+            flowActor=actor;
+            showDialog('部室に人は残っていますか？','', '',[
+              {label:'キャンセル',run:dismiss},
+              {label:'人が残っている',description:'自分の退室だけを記録します',run:()=>{
+                dispatch({type:'LEAVE',actor,confirmed,peopleRemain:true});dismiss();completeOperation('退室を記録しました。');
+                showDialog('中にいる人に声をかけてください','中にいる人にも、入室を記録するよう声をかけてください。','',[{label:'確認しました',primary:true,run:dismiss}]);
+              }},
+              {label:'自分が最後',description:'閉室チェックへ進みます',run:()=>{dismiss();startClosing(actor,confirmed);}}
+            ]);return;
+          }
           dispatch({type:'LEAVE',actor,confirmed});completeOperation('退室を記録しました。');
         };
         if(!present){
@@ -288,7 +303,7 @@
           const repeated=state.departed.includes(actor);
           const title=repeated?'もう一度退室を記録しますか？':'入室記録がありません';
           const description=repeated?'すでに退室記録があります。今回の入室記録を忘れている場合は、そのまま退室を記録できます。':'入室記録がありません。このまま退室を記録しますか？';
-          const label=state.open && state.occupants.length===0?'閉室チェックへ進む':'退室を記録する';
+          const label='退室を記録する';
           showDialog(title,description,'',[
             {label:'キャンセル',run:dismiss},
             {label,primary:true,run:()=>{dismiss();leave(true);}}
