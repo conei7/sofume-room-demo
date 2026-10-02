@@ -17,6 +17,7 @@
     .action[data-action="unlock"]:not(.recommended),.action[data-action="enter"]:not(.recommended){color:var(--blue);border-color:var(--blue)}
     .history-list{display:grid;gap:8px}.event{border-top:0;border-left:3px solid var(--line);border-radius:10px;padding:13px 12px;background:var(--soft)}.event-entry{background:rgba(41,98,255,.055);border-left-color:rgba(41,98,255,.45)}.event-exit{background:rgba(198,40,40,.045);border-left-color:rgba(198,40,40,.4)}.dark .event-entry{background:rgba(123,135,255,.09);border-left-color:rgba(123,135,255,.5)}.dark .event-exit{background:rgba(255,123,123,.07);border-left-color:rgba(255,123,123,.45)}
     #dialog-title:focus{outline:none}dialog h2{font-size:22px;line-height:1.5;letter-spacing:-.02em}dialog .description{line-height:1.8;margin-top:10px}.dialog-actions .btn{min-height:48px;padding:11px 16px}.dialog-actions.choice-actions{display:grid;grid-template-columns:minmax(0,1fr);justify-content:stretch;gap:12px;position:static;padding:0;margin-top:24px}.choice-action{display:flex;align-items:center;justify-content:space-between;gap:12px;width:100%;text-align:left;min-height:78px!important;padding:16px!important;border-radius:14px;background:var(--soft)}.choice-action strong{display:block;font-size:16px;line-height:1.5}.choice-description{display:block;color:var(--muted);font-size:12px;line-height:1.7;margin-top:4px}.choice-arrow{font-size:26px;color:var(--blue);line-height:1}.choice-action:hover{border-color:var(--blue);background:var(--soft)}.choice-actions .dialog-cancel{grid-row:3;border:0;background:transparent;color:var(--muted);font-size:13px;width:100%;min-height:42px;padding:8px;margin-top:0}@media(max-width:720px){dialog{padding:24px;border-radius:22px}.choice-action strong{font-size:15px}}
+    .history-list{max-height:none;overflow:visible;gap:12px}.event{display:block;padding:16px;border-left-width:3px}.event-top{display:flex;align-items:center;justify-content:space-between;gap:12px}.event-top time{flex-shrink:0;font-size:11px}.event-title{font-size:14px}.event-entry .event-title{color:var(--blue)}.event-exit .event-title{color:var(--red)}.event-actor{display:flex;align-items:center;gap:8px;margin-top:10px;font-size:13px}.event-actor .avatar{width:26px;height:26px;font-size:10px}.event-notes{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px}.event-note{border:1px solid var(--line);border-radius:6px;padding:2px 7px;font-size:11px;color:var(--muted);background:var(--card);overflow-wrap:anywhere}.history-group{margin-top:12px;padding-top:10px;border-top:1px solid var(--line)}.history-group-heading{display:flex;align-items:center;gap:8px;font-size:12px;font-weight:700}.history-group-heading span:last-child{font-size:11px;font-weight:400;color:var(--muted)}.history-group-auto .history-group-heading{color:var(--muted)}.history-members{display:flex;flex-wrap:wrap;gap:6px;list-style:none;margin:7px 0 0;padding:0}.history-members li{max-width:100%;padding:3px 9px;border:1px solid var(--line);border-radius:8px;background:var(--card);font-size:12px;overflow-wrap:anywhere}.event-top .event-title{min-width:0;overflow-wrap:anywhere}@media(max-width:400px){.event{padding:13px}.event-top{gap:8px}.event-title{font-size:13px}.event-top time{font-size:10px}}
   </style>
 </head>
 <body>
@@ -24,7 +25,7 @@
   <div class="success-toast" id="success-toast" role="status" aria-live="polite" aria-atomic="true" hidden><span class="toast-check" aria-hidden="true">✓</span><span id="success-message"></span></div>
   <main>
     <h1 id="page-title">入室</h1>
-    <nav class="view-nav" aria-label="部室管理"><button id="nav-enter" data-route="enter">入室</button><button id="nav-exit" data-route="exit">退室</button><button id="nav-status" data-route="status">状況・履歴</button></nav>
+    <nav class="view-nav" aria-label="部室管理"><button id="nav-enter" data-route="enter">入室</button><button id="nav-exit" data-route="exit">退室</button><button id="nav-status" data-route="status">在室状況</button></nav>
     <div class="workspace">
       <section class="card operation-card" id="operation-view" aria-labelledby="operation-heading">
         <div class="card-head"><h2 id="operation-heading">入室を記録</h2><span class="small" id="self-status">あなたは退室中</span></div>
@@ -36,7 +37,7 @@
       <section class="card" id="status-view" aria-labelledby="room-heading" hidden><div class="card-head"><h2 id="room-heading">部室の状況</h2><span class="small" id="updated">まだ操作はありません</span></div><div class="status" id="status"><span class="dot"></span><span id="status-text">閉室中</span></div><p class="opener" id="opener">開室者：—</p><p class="pending" id="closing-pending" hidden>閉室確認が未完了です</p><div class="occupant-head"><h2>現在の在室者</h2><span class="count" id="count">0人</span></div><ul class="people" id="people"></ul></section>
     </div>
     <p class="feedback" id="feedback" role="status" aria-live="polite" hidden></p>
-    <section class="card history" id="history-view" aria-labelledby="history-heading" hidden><div class="card-head"><h2 id="history-heading">操作履歴</h2></div><ol class="history-list" id="history"></ol></section>
+    <section class="card history" id="history-view" aria-labelledby="history-heading" hidden><div class="card-head"><h2 id="history-heading">入退室の履歴</h2></div><ol class="history-list" id="history"></ol></section>
     <details class="demo-tools"><summary>動作確認</summary><div class="tools-row"><label for="scenario">サンプル状態</label><select id="scenario"><option value="closed">閉室中</option><option value="multiple">複数人在室</option><option value="stale">在室記録が残っている</option><option value="unrecorded">閉室中なのに先客がいる</option></select><button class="btn" id="load-scenario">状態をセット</button><button class="btn" id="night">22時処理を試す</button><button class="btn danger" id="reset">初期状態にリセット</button></div></details>
     <footer>SOFTMEDIA</footer>
   </main>
@@ -56,6 +57,7 @@
         case 'ENTER':
           if(present && !event.reentry)return current;
           const entryDetails=[];
+          const clearedIds=event.first?next.occupants.filter(person=>person.id!==event.actor).map(person=>person.id):[];
           if(event.first){
             const removed=next.occupants.filter(person=>person.id!==event.actor).map(person=>memberName(person.id));
             next.occupants=[];next.opener=event.actor;
@@ -66,8 +68,8 @@
           next.notices=next.notices.filter(notice=>notice.memberId!==event.actor);
           next.departed=next.departed.filter(id=>id!==event.actor);next.open=true;next.lockRecorded=false;next.lockRecord=null;next.closingPending=false;next.unrecordedRemaining=false;next.occupants.push({id:event.actor,since:now});
           if(event.reentry)entryDetails.push('退室記録なしで再入室');
-          if(event.unrecorded)entryDetails.push('先客の入室記録が未確認。開錠者は未確認。');
-          record(event.first?'開錠・入室':'入室',entryDetails.join(' ／ '));break;
+          if(event.unrecorded)entryDetails.push('先客あり');
+          record(event.first?'開錠・入室':'入室',entryDetails.join(' ／ '),event.actor,{clearedIds});break;
         case 'LEAVE':
           if(!present && next.departed.includes(event.actor) && !event.confirmed)return current;
           next.departed=[...new Set([...next.departed,event.actor])];
@@ -99,9 +101,10 @@
           record('施錠・退室',closeDetails.join(' ／ '),event.actor,{togetherIds:together.map(person=>person.id),autoDepartedIds:automatic.map(person=>person.id)});break;
         }
         case 'NIGHT':{
-          const removed=next.occupants.map(person=>memberName(person.id));
+          const resetIds=next.occupants.map(person=>person.id);
+          const removed=resetIds.map(memberName);
           next.departed=[];next.occupants=[];next.open=false;next.lockRecorded=false;next.lockRecord=null;next.opener=null;next.openRecorder=null;next.closingPending=false;next.unrecordedRemaining=false;
-          record('22時処理：全員リセット',removed.length?'対象：'+removed.join('、')+'。実際の施錠は未確認。':'対象者なし。実際の施錠は未確認。','system');break;
+          record('22時処理：全員リセット',removed.length?'対象：'+removed.join('、')+'。実際の施錠は未確認。':'対象者なし。実際の施錠は未確認。','system',{resetIds});break;
         }
         default:return current;
       }
@@ -141,10 +144,23 @@
       const url=new URL(location.href);url.searchParams.set('mode',mode);if(view==='status')url.searchParams.set('view','status');else url.searchParams.delete('view');
       history.replaceState(null,'',url.href);render();
     }
+    function historyPeople(label,ids,kind=''){
+      if(!ids?.length)return '';
+      return '<div class="history-group '+kind+'"><div class="history-group-heading"><span>'+escapeHTML(label)+'</span><span>'+ids.length+'人</span></div><ul class="history-members">'+ids.map(id=>'<li>'+escapeHTML(memberName(id))+'</li>').join('')+'</ul></div>';
+    }
+    function renderHistoryEvent(event){
+      const system=event.actor==='system';
+      const kind=system?'event-system':event.title.includes('入室')?'event-entry':'event-exit';
+      const title=system && event.title.startsWith('22時処理')?'22時リセット':event.title;
+      const actor=system?'システム':memberName(event.actor);
+      const notes=system && event.resetIds?['施錠未確認']:event.detail.split(' ／ ').filter(note=>note && !/^(一緒に退室：|施錠に伴う自動退室：|在室記録を整理：)/.test(note));
+      const groups=historyPeople('一緒に退室',event.togetherIds)+historyPeople('自動退室',event.autoDepartedIds,'history-group-auto')+historyPeople('在室記録を整理',event.clearedIds,'history-group-auto')+historyPeople('リセット',event.resetIds,'history-group-auto');
+      return '<li class="event '+kind+'"><div class="event-top"><span class="event-title">'+escapeHTML(title)+'</span><time datetime="'+escapeHTML(event.time)+'">'+formatDate(event.time)+'</time></div><div class="event-actor"><span class="avatar" aria-hidden="true">'+escapeHTML(system?'S':actor.slice(0,2))+'</span><strong>'+escapeHTML(actor)+'</strong></div>'+(notes.length?'<div class="event-notes">'+notes.map(note=>'<span class="event-note">'+escapeHTML(note)+'</span>').join('')+'</div>':'')+groups+'</li>';
+    }
     function render(){
       $('member-avatar').textContent=memberName($('member').value).slice(0,2);
       $('status').classList.toggle('open',state.open);$('status-text').textContent=state.open?'開室中':'閉室中';
-      $('opener').textContent=state.open?(state.opener?'開室者：'+memberName(state.opener):'開錠者：未確認'+(state.openRecorder?' ／ 開室記録者：'+memberName(state.openRecorder):'')):state.lockRecord?memberName(state.lockRecord.actor)+'が'+formatTime(state.lockRecord.time)+'に施錠':'';
+      $('opener').textContent=state.open?(state.opener?'開室者：'+memberName(state.opener):(state.openRecorder?'開室記録：'+memberName(state.openRecorder):'開室記録なし')):state.lockRecord?'施錠：'+memberName(state.lockRecord.actor)+' · '+formatTime(state.lockRecord.time):'';
       $('opener').hidden=!state.open && !state.lockRecord;
       $('closing-pending').hidden=!state.closingPending && !state.unrecordedRemaining;
       $('closing-pending').textContent=state.unrecordedRemaining?'入室記録のない在室者がいます':'閉室確認が未完了です';
@@ -155,7 +171,7 @@
       const others=state.occupants.filter(person=>person.id!==$('member').value).length;
       const recommended=mode==='enter'?(state.open?'enter':'unlock'):(others?'leave':'close');
       document.querySelectorAll('[data-action]').forEach(button=>{const main=button.dataset.action===recommended;button.classList.toggle('recommended',main);button.style.order=main?'-1':'0';button.disabled=false;});
-      $('page-title').textContent=view==='status'?'部室の状況':mode==='enter'?'入室':'退室';
+      $('page-title').textContent=view==='status'?'在室状況':mode==='enter'?'入室':'退室';
       $('operation-heading').textContent=mode==='enter'?'入室を記録':'退室を記録';
       $('operation-view').hidden=view==='status';$('status-view').hidden=view!=='status';$('history-view').hidden=view!=='status';
       document.querySelectorAll('[data-route]').forEach(button=>{if(button.dataset.route===(view==='status'?'status':mode))button.setAttribute('aria-current','page');else button.removeAttribute('aria-current');});
@@ -166,9 +182,9 @@
       $('mismatch').textContent=mode==='enter'?'在室記録が残っています':'入室記録がありません';
       $('count').textContent=(state.unrecordedRemaining?'記録 ':'')+state.occupants.length+'人';
       $('self-status').textContent=state.occupants.some(person=>person.id===$('member').value)?'あなたは在室中':'あなたは退室中';
-      $('updated').textContent=state.updated?formatTime(state.updated)+' 更新':'まだ操作はありません';
+      $('updated').textContent=state.updated?formatTime(state.updated)+' 更新':'未記録';
       $('people').innerHTML=state.occupants.length?state.occupants.map(person=>'<li class="person"><span class="avatar" aria-hidden="true">'+escapeHTML(memberName(person.id).slice(0,2))+'</span><div><div class="person-name">'+escapeHTML(memberName(person.id))+'</div><div class="person-time">'+formatTime(person.since)+' 入室</div></div></li>').join(''):'<li class="empty"><span class="empty-icon" aria-hidden="true">♧</span><span>'+ (state.unrecordedRemaining?'在室者の入室記録を待っています':'現在の在室者はいません') +'</span></li>';
-      $('history').innerHTML=state.history.length?state.history.map(event=>'<li class="event '+(event.actor==='system'?'event-system':event.title.includes('入室')?'event-entry':'event-exit')+'"><time datetime="'+escapeHTML(event.time)+'">'+formatDate(event.time)+'</time><div><div class="event-title">'+escapeHTML(event.title)+' <span class="small">／ '+escapeHTML(event.actor==='system'?'システム':memberName(event.actor))+'</span></div>'+(event.detail?'<p class="event-detail">'+escapeHTML(event.detail)+'</p>':'')+'</div></li>').join(''):'<li class="history-empty">まだ履歴はありません。操作すると、ここに記録されます。</li>';
+      $('history').innerHTML=state.history.length?state.history.map(renderHistoryEvent).join(''):'<li class="history-empty">履歴はまだありません</li>';
     }
     function dismiss(){if($('flow').open)$('flow').close();flowActor=null;}
     function showDialog(title,description,body,buttons,tag='確認'){
