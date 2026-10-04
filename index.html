@@ -160,10 +160,10 @@
     function renderHistoryEvent(event){
       const system=event.actor==='system';
       const kind=system?'event-system':event.title.includes('入室')?'event-entry':'event-exit';
-      const title=system && event.title.startsWith('22時処理')?'自動退室':event.title;
+      const title=system && event.title.startsWith('22時処理')?'自動退室（施錠未確認）':event.title;
       const actor=system?'システム':memberName(event.actor);
-      const notes=system && event.resetIds?['22時の自動処理','施錠未確認']:event.detail.split(' ／ ').filter(note=>note && !/^(一緒に退室：|施錠に伴う自動退室：|在室記録を整理：)/.test(note));
-      const groups=historyPeople('一緒に退室',event.togetherIds)+historyPeople('自動退室',event.autoDepartedIds,'history-group-auto')+historyPeople('在室記録を整理',event.clearedIds,'history-group-auto')+historyPeople('自動退室した人',event.resetIds,'history-group-auto');
+      const notes=system && event.resetIds?[]:event.detail.split(' ／ ').filter(note=>note && !/^(一緒に退室：|施錠に伴う自動退室：|在室記録を整理：)/.test(note));
+      const groups=historyPeople('一緒に退室',event.togetherIds)+historyPeople('自動退室',event.autoDepartedIds,'history-group-auto')+historyPeople('在室記録を整理',event.clearedIds,'history-group-auto')+historyPeople('自動退室',event.resetIds,'history-group-auto');
       return '<li class="event '+kind+'"><div class="event-top"><span class="event-title">'+escapeHTML(title)+'</span><time datetime="'+escapeHTML(event.time)+'">'+formatDate(event.time)+'</time></div><div class="event-actor"><span class="avatar" aria-hidden="true">'+escapeHTML(system?'S':actor.slice(0,2))+'</span><strong>'+escapeHTML(actor)+'</strong></div>'+(notes.length?'<div class="event-notes">'+notes.map(note=>'<span class="event-note">'+escapeHTML(note)+'</span>').join('')+'</div>':'')+groups+'</li>';
     }
     function render(){
